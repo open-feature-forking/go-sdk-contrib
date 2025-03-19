@@ -2,6 +2,7 @@ ALL_GO_MOD_DIRS := $(shell find . -type f -name 'go.mod' -exec dirname {} \; | s
 MODULE_TYPE ?= providers
 FLAGD_TESTBED = flagd-testbed
 FLAGD_SYNC = sync-testbed
+DOCKER_CMD = podman
 
 workspace-init:
 	go work init
@@ -14,14 +15,14 @@ test:
 	go list -f '{{.Dir}}/...' -m | xargs -I{} go test -v {}
 
 e2e-start-helpers:
-	docker run --name $(FLAGD_TESTBED) -d -p 8013:8013 ghcr.io/open-feature/flagd-testbed:v0.5.6
-	docker run --name $(FLAGD_SYNC) -d -p 9090:9090 ghcr.io/open-feature/sync-testbed:v0.5.6
+	$(DOCKER_CMD) run --name $(FLAGD_TESTBED) -d -p 8013:8013 ghcr.io/open-feature/flagd-testbed:v0.5.4
+	$(DOCKER_CMD) run --name $(FLAGD_SYNC) -d -p 9090:9090 ghcr.io/open-feature/sync-testbed:v0.5.4
 
 e2e-remove-helpers:
-	docker stop $(FLAGD_TESTBED)
-	docker stop $(FLAGD_SYNC)
-	docker rm $(FLAGD_TESTBED)
-	docker rm $(FLAGD_SYNC)
+	$(DOCKER_CMD) stop $(FLAGD_TESTBED)
+	$(DOCKER_CMD) stop $(FLAGD_SYNC)
+	$(DOCKER_CMD) rm $(FLAGD_TESTBED)
+	$(DOCKER_CMD) rm $(FLAGD_SYNC)
 
 e2e:
 	go clean -testcache && go list -f '{{.Dir}}/...' -m | xargs -I{} go test -tags=e2e {}

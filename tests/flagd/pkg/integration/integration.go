@@ -15,6 +15,7 @@ type ctxStorageKey struct{}
 
 // ctxClientKey is the key used to pass the openfeature client across context.Context
 type ctxClientKey struct{}
+
 var domain = "flagd-e2e-tests"
 
 func aFlagdProviderIsSet(ctx context.Context) (context.Context, error) {

@@ -80,6 +80,7 @@ func TestNewProvider(t *testing.T) {
 				WithLRUCache(2500),
 				WithEventStreamConnectionMaxAttempts(2),
 				WithCertificatePath("/path"),
+				WithTLS(true),
 				WithHost("myHost"),
 				WithPort(9090),
 			},
@@ -483,84 +484,4 @@ func TestInitializeOnlyOnce(t *testing.T) {
 		t.Errorf("expected provider to be not ready, but got ready")
 	}
 
-}
-
-func TestUpdateProviderInProcessWithOfflineFile(t *testing.T) {
-	// given
-	providerConfiguration := &providerConfiguration{
-		Resolver:              inProcess,
-		OfflineFlagSourcePath: "somePath",
-	}
-
-	provider := &Provider{
-		providerConfiguration: providerConfiguration,
-	}
-
-	// when
-	UpdateProvider(provider)
-
-	// then
-	if provider.providerConfiguration.Resolver != file {
-		t.Errorf("incorrect Resolver, expected %v, got %v",
-			file, provider.providerConfiguration.Resolver)
-	}
-}
-
-func TestUpdateProviderRpcWithoutPort(t *testing.T) {
-	// given
-	providerConfiguration := &providerConfiguration{
-		Resolver: rpc,
-	}
-
-	provider := &Provider{
-		providerConfiguration: providerConfiguration,
-	}
-
-	// when
-	UpdateProvider(provider)
-
-	// then
-	if provider.providerConfiguration.Port != defaultRpcPort {
-		t.Errorf("incorrect Port, expected %v, got %v",
-			defaultRpcPort, provider.providerConfiguration.Port)
-	}
-}
-
-func TestUpdateProviderInProcessWithoutPort(t *testing.T) {
-	// given
-	providerConfiguration := &providerConfiguration{
-		Resolver: inProcess,
-	}
-
-	provider := &Provider{
-		providerConfiguration: providerConfiguration,
-	}
-
-	// when
-	UpdateProvider(provider)
-
-	// then
-	if provider.providerConfiguration.Port != defaultInProcessPort {
-		t.Errorf("incorrect Port, expected %v, got %v",
-			defaultInProcessPort, provider.providerConfiguration.Port)
-	}
-}
-
-func TestCheckProviderFileMissingData(t *testing.T) {
-	// given
-	providerConfiguration := &providerConfiguration{
-		Resolver: file,
-	}
-
-	provider := &Provider{
-		providerConfiguration: providerConfiguration,
-	}
-
-	// when
-	err := CheckProvider(provider)
-
-	// then
-	if err == nil {
-		t.Errorf("Error expected but check succeeded")
-	}
 }
