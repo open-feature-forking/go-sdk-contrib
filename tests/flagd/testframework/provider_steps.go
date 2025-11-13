@@ -28,7 +28,8 @@ func InitializeProviderSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a (\w+) flagd provider$`,
 		withState1Arg((*TestState).createSpecializedFlagdProvider))
 
-	ctx.Step(`^the client is in (\w+) state$`,
+	// TODO: deprecate 'is' variant after flagd-testbed/pull/#311 is merged
+	ctx.Step(`^the client (?:is|should be) in (\w+) state$`,
 		withState1Arg((*TestState).assertClientState))
 }
 
@@ -187,6 +188,7 @@ func (s *TestState) configureUnavailableProvider() error {
 func (s *TestState) configureForbiddenProvider() error {
 	// Set an Envoy port which always responds with forbidden
 	s.addProviderOption("port", "Integer", "9212")
+	s.addProviderOption("retryBackoffMaxMs", "Integer", "3000")	// Shorter backoff for testing
 	return nil
 }
 

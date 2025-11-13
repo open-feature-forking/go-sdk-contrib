@@ -4,7 +4,6 @@ import (
 	"buf.build/gen/go/open-feature/flagd/grpc/go/flagd/sync/v1/syncv1grpc"
 	v1 "buf.build/gen/go/open-feature/flagd/protocolbuffers/go/flagd/sync/v1"
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/open-feature/flagd/core/pkg/logger"
 	"github.com/open-feature/flagd/core/pkg/sync"
@@ -14,50 +13,11 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
-	"strings"
 	msync "sync"
 	"time"
 )
 
-const (
-	// Default timeouts and retry intervals
-	defaultKeepaliveTime    = 30 * time.Second
-	defaultKeepaliveTimeout = 5 * time.Second
-
-	retryPolicy = `{
-		  "methodConfig": [
-			{
-			  "name": [
-				{
-				  "service": "flagd.sync.v1.FlagSyncService"
-				}
-			  ],
-			  "retryPolicy": {
-				"MaxAttempts": 3,
-				"InitialBackoff": "1s",
-				"MaxBackoff": "5s",
-				"BackoffMultiplier": 2.0,
-				"RetryableStatusCodes": [
-				  "UNKNOWN",
-				  "UNAVAILABLE"
-				]
-			  }
-			}
-		  ]
-		}`
-
-	nonRetryableStatusCodes = `
-		[
-		  "PermissionDenied",
-		  "Unauthenticated"
-		]
-	`
-)
-
-// Set of non-retryable gRPC status codes for faster lookup
-var nonRetryableCodes map[string]struct{}
-
-// Type aliases for interfaces required by this component - needed for mock generation with gomock
+// FlagSyncServiceClient Type aliases for interfaces required by this component - needed for mock generation with gomock
 type FlagSyncServiceClient interface {
 	syncv1grpc.FlagSyncServiceClient
 }
@@ -79,6 +39,9 @@ type Sync struct {
 	URI                     string
 	MaxMsgSize              int
 	RetryGracePeriod		int
+	RetryBackOffMs			int
+	RetryBackOffMaxMs		int
+	FatalStatusCodes		[]string
 
 	// Runtime state
 	client           FlagSyncServiceClient
@@ -157,24 +120,12 @@ func (g *Sync) buildDialOptions() ([]grpc.DialOption, error) {
 	}
 	dialOptions = append(dialOptions, grpc.WithKeepaliveParams(keepaliveParams))
 
-	dialOptions = append(dialOptions, grpc.WithDefaultServiceConfig(retryPolicy))
+	dialOptions = append(dialOptions, grpc.WithDefaultServiceConfig(g.buildRetryPolicy()))
 
 	return dialOptions, nil
 }
 
-// initNonRetryableStatusCodesSet initializes the set of non-retryable gRPC status codes for quick lookup
-func (g *Sync) initNonRetryableStatusCodesSet()  {
-	var codes []string
-	nonRetryableCodes = make(map[string]struct{})
-	trimmed := strings.TrimSpace(nonRetryableStatusCodes)
-	if err := json.Unmarshal([]byte(trimmed), &codes); err == nil {
-		for _, code := range codes {
-			nonRetryableCodes[code] = struct{}{}
-		}
-	} else {
-		g.Logger.Debug("parsing non-retryable status codes failed, retrying on all errors")
-	}
-}
+
 
 // ReSync performs a one-time fetch of all flags
 func (g *Sync) ReSync(ctx context.Context, dataSync chan<- sync.DataSync) error {
@@ -208,6 +159,8 @@ func (g *Sync) IsReady() bool {
 // Sync starts the continuous flag synchronization process with improved context handling
 func (g *Sync) Sync(ctx context.Context, dataSync chan<- sync.DataSync) error {
 	g.Logger.Info("starting continuous flag synchronization")
+
+	time.Sleep(500 * time.Millisecond)
 
 	// Ensure shutdown completion is signaled when THIS method exits
 	defer g.markShutdownComplete()
@@ -246,7 +199,7 @@ func (g *Sync) Sync(ctx context.Context, dataSync chan<- sync.DataSync) error {
 			}
 
 			// Backoff before retrying
-			time.Sleep(time.Duration(g.RetryGracePeriod))
+			time.Sleep(time.Duration(g.RetryBackOffMs) * time.Millisecond)
 
 			g.Logger.Warn(fmt.Sprintf("sync cycle failed: %v, retrying...", err))
 			g.sendEvent(ctx, SyncEvent{event: of.ProviderError})
