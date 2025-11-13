@@ -188,7 +188,6 @@ func (s *TestState) configureUnavailableProvider() error {
 func (s *TestState) configureForbiddenProvider() error {
 	// Set an Envoy port which always responds with forbidden
 	s.addProviderOption("port", "Integer", "9212")
-	s.addProviderOption("retryBackoffMaxMs", "Integer", "3000")	// Shorter backoff for testing
 	return nil
 }
 
