@@ -79,8 +79,11 @@ func (vc *ValueConverter) ConvertToReflectValue(valueType, value string, fieldTy
 		}
 		return reflect.ValueOf(longVal).Convert(fieldType)
 	case "StringList":
-		arrayVal := strings.Split(value, ",")
-		return reflect.ValueOf(arrayVal).Convert(fieldType)
+		splitVal := strings.Split(value, ",")
+		for i, v := range splitVal {
+			splitVal[i] = strings.TrimSpace(v)
+		}
+		return reflect.ValueOf(splitVal).Convert(fieldType)
 	default:
 		return reflect.ValueOf(value).Convert(fieldType)
 	}
